@@ -1,0 +1,43 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    RC-beam_0
+{% endblock %}
+
+{% block main %}
+<h3 align="left">Beam Geometry:</h3>
+<h5 align="justify">
+  The geometry of the beam is defined using a 2D analysis model where each support
+  is defined by a node and each span is defined by an element which connects the
+  two nodes.
+</h5>
+  <br>
+  <h6 align="left">
+  <p>Notes and exclusions:</p>
+  <ul>
+    <li>This calculation form only accepts beams with rectangular cross sections,
+      defined by the section width X section depth;</li>
+    <li>Only simply supported beams are supported in the current version.</li>
+  </ul>
+  <form action="/RC-beam-0" method="post">
+    <div class="form-group">
+        <input autocomplete="off" autofocus class="form-control mx-auto w-auto" name="lenght" placeholder="Length (m)" type="number" min="0" step=0.01>
+    <br>
+    <br>
+    <br>
+    <div class="form-group">
+        <input autocomplete="off" class="form-control mx-auto w-auto" name="width" placeholder="Section width (mm)" type="number" min="0" step=1>
+    <br>
+    <br>
+    <br>
+    <div class="form-group">
+        <input autocomplete="off" class="form-control mx-auto w-auto" name="depth" placeholder="Section depth (mm)" type="number" min="0" step=1>
+    <br>
+    <br>
+    <br>
+    <button class="btn btn-primary" type="submit">Next</button>
+    </h6>
+</form>
+{% endblock %}
+
+

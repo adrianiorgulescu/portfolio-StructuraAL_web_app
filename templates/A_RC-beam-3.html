@@ -1,0 +1,154 @@
+{% extends "layout.html" %}
+
+{% block head %}
+<script src="/static/A_RC-beam-3.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.js"></script>
+<script>
+  beamReactionA = '{{ static_calculations[0] }}';
+  beamReactionB = '{{ static_calculations[1] }}';
+  beamDesignBM = '{{ static_calculations[2] }}';
+  beamSFpozitive = '{{ static_calculations[3] }}';
+  beamSFnegative = '{{ static_calculations[4] }}';
+
+  Beam_length = '{{ length }}';
+  Beam_sizeW = '{{ width }}';
+  Beam_sizeD = '{{ depth }}';
+  coverBottom = '{{ bottom_cover }}'
+  coverTop = '{{ top_cover }}';
+  coverSides = '{{ side_cover }}';
+  concreteClass = '{{ concrete_class }}';
+  steelClass = '{{ f_y }}';
+  pointLoads = '{{ point_loads }}';
+  distributedLoads = '{{ distributed_loads }}';
+</script>
+{% endblock %}
+
+{% block title %}
+    RC-beam_3
+{% endblock %}
+
+{% block main %}
+<h3 align="justify">Beam reinforcement design</h3>
+<form action="/RC-beam-3" method="post">
+<h5 align="justify">
+  RC beam properties:
+</h5>
+<h6 align="justify">
+  Beam length: {{ length }} m;
+  <br>
+  Beam size: {{ width }} x {{ depth }} mm;
+  <br>
+  Reinforcement cover: bottom: {{bottom_cover}} mm, top: {{top_cover}} mm, sides: {{side_cover}} mm;
+  <br>
+  Concrete class: {{concrete_class}};
+  <br>
+  Reinforcing steel class: {{f_y}} MPa;
+  <br>
+  Point loads:
+  <ul>
+    {% for point_load in point_loads %}
+    <li>{{ point_load[1] }}kN @ {{ point_load[0] }}m;</li>
+    {% endfor %}
+  </ul>
+  Distributed loads:
+  <ul>
+    {% for distributed_load in distributed_loads %}
+    <li>{{ distributed_load[2] }}kN/m from {{ distributed_load[0] }}m to {{ distributed_load[1] }}m along beam length;</li>
+    {% endfor %}
+  </ul>
+</h6>
+<h5 align="justify">
+  Static calculation results:
+</h5>
+<h6 align="justify">
+Factored beam reaction support A: <b>{{ static_calculations[0] }} kN</b>
+<br>
+Factored beam reaction support B: <b>{{ static_calculations[1] }} kN</b>
+<br>
+Beam maximum design bending moment: <b>{{ static_calculations[2] }} kNm</b>
+<br>
+Beam design shear force (max pozitive value): <b>{{ static_calculations[3] }} kN</b>
+<br>
+Beam design shear force (max negative value): <b>{{ static_calculations[4] }} kN</b>
+</h6>
+<br>
+<h5 align="justify">
+  Tension reinforcement design:
+</h5>
+<h6 align="justify">The required tension reinforcement (mm<sup>2</sup>) is:</h6>
+  <input type="text" class="form-control" id="requiredTensionRebar" value='{{ tension_reinforcement }}' disabled style="width: 200px;">
+<br>
+<br>
+<div class="p-3 text-primary-emphasis border border-warning-subtle rounded-3">
+<h6 align="justify" class="p-3 text-primary-emphasis border border-warning-subtle rounded-3">Please select the actual tension reinforcement:</h6>
+<select class="form-select bg-warning-subtle" id="numberOfBars" aria-label="Default select example" style="width: 300px;" onchange="checkArea(event)">
+  <option selected disabled>Select the number of bars</option>
+  {% for bar in bars %}
+  <option value="{{ bar }}">{{ bar }}</option>
+  {% endfor %}
+</select>
+<br>
+<br>
+<select class="form-select bg-warning-subtle" id="diameterOfBars" aria-label="Default select example" style="width: 300px;" onchange="checkArea(event)">
+  <option selected disabled>Select the bar diameter</option>
+  {% for diameter in diameters %}
+  <option value="{{ diameter }}">{{ diameter }}</option>
+  {% endfor %}
+</select>
+<br>
+<br>
+</div>
+<br>
+<h6 align="justify">Provided tension reinforcement area (mm<sup>2</sup>):</h6>
+<input type="text" class="form-control" id="actualTensionRebarArea" value='' disabled style="width: 200px;">
+<input type="text" class="form-control" id="rebarOK" value='PASS' style="width: 100px; color: green" disabled>
+<input type="text" class="form-control" id="rebarNotOK" value='FAIL' style="width: 100px; color: red" disabled>
+<br>
+<br>
+<br>
+<h5 align="justify">
+  Shear reinforcement design:
+</h5>
+<h6 align="justify">The required shear reinforcement (mm<sup>2</sup>/m) is:</h6>
+  <input type="text" class="form-control" id="requiredShearRebar" value='{{ shear_reinforcement }}' disabled style="width: 200px;">
+<br>
+<br>
+<div class="p-3 text-primary-emphasis border border-warning-subtle rounded-3">
+<h6 align="justify" class="p-3 text-primary-emphasis border border-warning-subtle rounded-3">Please select the actual shear reinforcement:</h6>
+<select class="form-select bg-warning-subtle" id="numberOfLegs" aria-label="Default select example" style="width: 300px;" onchange="checkShearArea(event)">
+  <option selected disabled>Select the number stirrup 'legs'</option>
+  {% for shear_leg in shear_legs %}
+  <option value="{{ shear_leg }}">{{ shear_leg }}</option>
+  {% endfor %}
+</select>
+<br>
+<br>
+<select class="form-select bg-warning-subtle" id="rebarSpacing" aria-label="Default select example" style="width: 300px;" onchange="checkShearArea(event)">
+  <option selected disabled>Select the stirrup spacing</option>
+  {% for shear_spacing in shear_spacings %}
+  <option value="{{ shear_spacing }}">{{ shear_spacing }}</option>
+  {% endfor %}
+</select>
+<br>
+<br>
+<select class="form-select bg-warning-subtle" id="diameterOfBarsShear" aria-label="Default select example" style="width: 300px;" onchange="checkShearArea(event)">
+  <option selected disabled>Select the bar diameter</option>
+  {% for shear_diameter in shear_diameters %}
+  <option value="{{ shear_diameter }}">{{ shear_diameter }}</option>
+  {% endfor %}
+</select>
+<br>
+<br>
+</div>
+<br>
+<h6 align="justify">Provided shear reinforcement area (mm<sup>2</sup>/m):</h6>
+<input type="text" class="form-control" id="actualShearRebarArea" value='' disabled style="width: 200px;">
+<input type="text" class="form-control" id="shearRebarOK" value='PASS' style="width: 100px; color: green" disabled>
+<input type="text" class="form-control" id="shearRebarNotOK" value='FAIL' style="width: 100px; color: red" disabled>
+</form>
+<br>
+<button type="button" class="btn btn-primary" onclick="generatePDF()">Save results as PDF</button>
+
+{% endblock %}
+
+

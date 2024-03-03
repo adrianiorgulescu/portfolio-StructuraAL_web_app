@@ -1,0 +1,25 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Index
+{% endblock %}
+
+{% block main %}
+<form action="/" method="post">
+    <div class="mb-3" align="left">
+        <h5 >Please select the calculation you wish to perform:</h5>
+        <select name="calculation-selection" id="calculation-selection">
+            <option disabled selected>Calculation</option>
+                <option value="RC-beam">Reinforced concrete beam design</option>
+                <option value="Steel-beam" disabled>Steel beam design</option>
+                <option value="Steel-column" disabled>Steel column design</option>
+                <option value="Retaining-wall" disabled>Retaining wall design</option>
+        </select>
+        <br>
+        <br>
+        <button class="btn btn-primary" type="submit">Next</button>
+    </div>
+</form>
+{% endblock %}
+
+

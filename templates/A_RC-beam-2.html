@@ -1,0 +1,75 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    RC-beam_2
+{% endblock %}
+
+{% block main %}
+<h3 align="justify">Beam properties:</h3>
+<form action="/RC-beam-2" method="post">
+<h5 align="justify">
+  Please specify the material properties:
+</h5>
+<h6>
+  <div class="mb-3">
+            <select name="concrete" id="concrete">
+                <option disabled selected>Concrete Class</option>
+                {% for table in tables %}
+                    <option value="{{ table.class }}">{{ table.class }}</option>
+                {% endfor %}
+            </select>
+<br>
+<br>
+<br>
+<h6 align="justify">Please specify reinforced concrete density (typically 2500):</h6>
+<div class="form-group">
+  <input autocomplete="off" autofocus class="form-control mx-auto w-auto" name="RCdensity" placeholder="Density of RC (kg/m3)" type="number" min="1800" max="3000" step=50>
+</div>
+<br>
+<br>
+<br>
+<h6 align="justify">Please specify characteristic yield strenght of reinforcement (typically 500):</h6>
+<div class="form-group">
+  <input autocomplete="off" autofocus class="form-control mx-auto w-auto" name="fyk" placeholder="fyk (N/mm2)" type="number" min="100" max="1500" step=10>
+</div>
+<br>
+<br>
+</h6>
+<h5 align="justify">
+  Please specify concrete cover:
+</h5>
+<h6 align="justify">
+  <br>
+  Notes:
+  <ul>
+    <li>Concrete cover is measured to the outer most reinforcement (links);</li>
+    <li>No check is undertaken on the cover specified;
+      The value is only utilised to calculate distances to the rebar.</li>
+  </ul>
+  <h6>
+    <div class="form-group">
+        <input autocomplete="off" autofocus class="form-control mx-auto w-auto" name="topC" placeholder="Top of beam (mm)" type="number" min="20" max="50" step=5>
+    </div>
+    <br>
+    <br>
+    <br>
+    <div class="form-group">
+        <input autocomplete="off" class="form-control mx-auto w-auto" name="bottomC" placeholder="Bottom of beam (mm)" type="number" min="20" max="50" step=5>
+    </div>
+    <br>
+    <br>
+    <br>
+    <div class="form-group">
+        <input autocomplete="off" class="form-control mx-auto w-auto" name="sideC" placeholder="Sides of beam (mm)" type="number" min="20" max="50" step=5>
+    </div>
+  </h6>
+  <h6 align="justify">
+    <br>
+    <br>
+    <br>
+    <button class="btn btn-primary" type="submit">Next</button>
+</h6>
+</form>
+{% endblock %}
+
+

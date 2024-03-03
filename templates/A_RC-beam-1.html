@@ -1,0 +1,87 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    RC-beam_1
+{% endblock %}
+
+{% block main %}
+<h3 align="left">Loading:</h3>
+<h6 align="justify">
+  <ul>
+    <li>A self weight loadcase will be added automatically.</li>
+    <li>Please note that the loads will be combined in accordance with the Eurocode (EN 1990:2002) for SLS and ULS limit states.</li>
+    <li>To add additional loads you must first create a load case by entering a name for the load case.</li>
+    <li>Load positions can be entered as an absolute value (in meters),
+      measured from the start position of the element.</li>
+    <li>Create a new row in order to add a new load to the element.</li>
+    <li>For any additional loads create more rows.</li>
+    <li>Ensure there is at least one load (completed row) in the loading table.</li>
+    <li>Ensure there are no empty rows in the loading table.</li>
+</ul>
+
+  <br>
+  <button onclick="myCreateFunction()">Create row</button>
+  <button onclick="myDeleteFunction()">Delete row</button>
+  <br>
+  <br>
+
+<form action="/RC-beam-1" method="post">
+    <p>Click the buttons above to create and delete row(s) from the table.</p>
+    <br>
+    <ul>
+      <li>(1) The load type can be Permanent or Variable;</li>
+      <li>(2) Specify if the load is uniformly distributed across lenght of element or a point load;</li>
+      <li>(3) Provide the intensity of the loading (in kN/m for UDL and in kN for point loads);</li>
+      <li>(4) Specify the position of the load (measured from origin).
+        This is only applicable for point loads.
+        If ULD, it is considered that the load is applied across the whole length of the element -> please enter the value zero (numerical).</li>
+      </ul>
+        <br>
+
+    <table id="myTable">
+      <tr>
+        <td>(1) Load Type</td>
+        <td>(2) UDL or Point load</td>
+        <td>(3) Load Value</td>
+        <td>(4) Load Position</td>
+      </tr>
+    </table>
+    <br>
+    <button class="btn btn-primary" type="submit">Next</button>
+    <br>
+    <br>
+    <input type="hidden" id="totalRowsId" name="totalRows" value="5">
+  </h6>
+</form>
+
+<script>
+  function myCreateFunction() {
+    var table = document.getElementById("myTable");
+    var length = document.getElementById('myTable').rows.length;
+    var row = table.insertRow(1);
+    var cell1 = row.insertCell(0);
+    var cell2 = row.insertCell(1);
+    var cell3 = row.insertCell(2);
+    var cell4 = row.insertCell(3);
+    cell1.innerHTML = "<select name='" + "cellA".concat(length+1) + "'> <option disabled selected>Permanent/Variable</option> <option value='permanent'>Permanent</option> <option value='variable'>Variable</option>";
+    cell2.innerHTML = "<select name='" + "cellB".concat(length+1) + "'> <option disabled selected>UDL/Point Load</option> <option value='udl'>UDL</option> <option value='point'>POINT LOAD</option>";
+    cell3.innerHTML = "<input type='number' min='0' step=0.1 placeholder='Load in kN/m or kN' name='" + "cellC".concat(length+1) + "'>";
+    cell4.innerHTML = "<input type='number' min='0' step=0.1 placeholder='Position (m) / 0 for UDL' name='" + "cellD".concat(length+1) + "'>";
+
+    var size = document.getElementById('myTable').rows.length;
+    document.getElementById("totalRowsId").value = size
+  }
+
+  function myDeleteFunction() {
+    document.getElementById("myTable").deleteRow(1);
+
+    var size = document.getElementById('myTable').rows.length;
+    document.getElementById("totalRowsId").value = size
+  }
+
+ // document.getElementById("table").innerHTML = rows;
+</script>
+
+{% endblock %}
+
+
