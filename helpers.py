@@ -32,10 +32,7 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-
-
-    """  Decorate routes to require login.    """
-
+# FUNCTION FOR STATIC CALCULATIONS TO DETERMINE BENDING MOMENT ON BEAM
 def bending_moment(length, point_loads, distributed_loads):
     """
     Calculate bending moment of a simply supported beam.
@@ -50,13 +47,8 @@ def bending_moment(length, point_loads, distributed_loads):
     """
 
     # Transform distributed loads in equivalent point loads:
-    equivalent_point_loads = []
-    for start_position, end_position, load_intensity in distributed_loads:
-        mid_point = (start_position + end_position) / 2
-        equivalent_point_load = load_intensity * (end_position - start_position)
-        load_tuple = (mid_point, equivalent_point_load)
-        equivalent_point_loads.append(load_tuple)
-
+    equivalent_point_loads = transform_distributed_to_point(distributed_loads)
+    
     # Add the equivalent point loads to the point loads list:
     new_point_loads = point_loads + equivalent_point_loads
 
@@ -156,6 +148,17 @@ def bending_moment(length, point_loads, distributed_loads):
 
     return(round(reaction_A, 1), round(reaction_B,1), round(max_bending_moment,1), round(max_shear_force,1), round(min_shear_force,1))
 
+
+def transform_distributed_to_point(distributed_loads):
+    equivalent_point_loads = []
+    for start_position, end_position, load_intensity in distributed_loads:
+        mid_point = (start_position + end_position) / 2
+        equivalent_point_load = load_intensity * (end_position - start_position)
+        load_tuple = (mid_point, equivalent_point_load)
+        equivalent_point_loads.append(load_tuple)
+    return equivalent_point_loads
+
+
 # FUNCTION FOR DETERMINING BENDING REINFORCEMENT REQUIREMENT
 def bending_reinforcement(beam_geometry, beam_properties, static_calculations):
     """
@@ -173,28 +176,21 @@ def bending_reinforcement(beam_geometry, beam_properties, static_calculations):
         f_y: Yield strength of reinforcement (in MPa)
         M: Bending moment (in kNm)
         bottom_cover: bottom rebar cover (in mm)
-        top_cover: top rebar cover (in mm)
 
     Returns:
     - required area of reinforcement (in sqmm)
     """
 
-    #static calcs: (reaction_A, reaction_B, max_bending_moment, max_shear_force, min_shear_force)
-    #db.execute("SELECT * FROM rc_beam_properties")
-    #rcBeamGeometry = db.execute("SELECT * FROM beam_geometry")
-#C16/20
-    b = beam_geometry[0]['width']
+    #retrieve the design variables:
     d = beam_geometry[0]['depth']
     concrete_class = beam_properties[0]['conc_class']
     f_c = re.split("[/]", concrete_class)[0]
     f_c = re.split("[C]", f_c)[1]
     f_y = beam_properties[0]['fyk']
     bottom_cover = beam_properties[0]['bot_cover']
-    top_cover = beam_properties[0]['top_cover']
     M = static_calculations[2]
 
     # Constants
-    gamma_c = 1.5  # Partial safety factor for concrete
     gamma_s = 1.15  # Partial safety factor for steel
 
     # Convert units
@@ -202,13 +198,12 @@ def bending_reinforcement(beam_geometry, beam_properties, static_calculations):
 
     # Calculate lever arm 'a' (distance from the centroid of the compression zone to the extreme fiber)
     d_d = d - bottom_cover - 10 # (considering a 20mm dia bar is provided, which is conservative)
-    a = 0.9 * d  # Assuming a rectangular stress block and providing a factor of safety
-    # Calculate the design concrete strength & steel strength
-    f_c_d = float(f_c) / gamma_c
+    a = 0.9 * d_d  # Assuming a rectangular stress block and providing a factor of safety
+    # Calculate the design steel strength
     f_y_d = float(f_y) / gamma_s
 
-    # Calculate the area of tension reinforcement required
-    A_s_req = round(((M_d) / (f_y * a)),1)
+    # Calculate the area of tension reinforcement required and return the value
+    A_s_req = round(((M_d) / (f_y_d * a)),1)
     return A_s_req
 
 # FUNCTION FOR DETERMINING SHEAR REINFORCEMENT REQUIREMENT
@@ -226,31 +221,23 @@ def shear_reinforcement(beam_geometry, beam_properties, static_calculations):
         d: Effective depth of the beam (in mm)
         f_c: Characteristic strength of concrete (in MPa)
         f_y: Yield strength of reinforcement (in MPa)
-        M: Bending moment (in kNm)
+        V: shear force (in kN)
         bottom_cover: bottom rebar cover (in mm)
-        top_cover: top rebar cover (in mm)
 
     Returns:
     - required area of reinforcement (in sqmm / m)
     """
 
-    #static calcs: (reaction_A, reaction_B, max_bending_moment, max_shear_force, min_shear_force)
-    #db.execute("SELECT * FROM rc_beam_properties")
-    #rcBeamGeometry = db.execute("SELECT * FROM beam_geometry")
-    #C16/20
-    b = beam_geometry[0]['width']
+    #retrieve the design variables:
     d = beam_geometry[0]['depth']
     concrete_class = beam_properties[0]['conc_class']
     f_c = re.split("[/]", concrete_class)[0]
     f_c = re.split("[C]", f_c)[1]
     f_y = beam_properties[0]['fyk']
     bottom_cover = beam_properties[0]['bot_cover']
-    top_cover = beam_properties[0]['top_cover']
-    M = static_calculations[2]
     V = max(abs(static_calculations[3]), abs(static_calculations[4]))
 
     # Constants
-    gamma_c = 1.5  # Partial safety factor for concrete
     gamma_s = 1.15  # Partial safety factor for steel
 
     # Convert units
@@ -258,12 +245,11 @@ def shear_reinforcement(beam_geometry, beam_properties, static_calculations):
 
     # Calculate lever arm 'a' (distance from the centroid of the compression zone to the extreme fiber)
     d_d = d - bottom_cover - 10 # (considering a 20mm dia bar is provided, which is conservative)
-    z = 0.9 * d  # Assuming a rectangular stress block and providing a factor of safety
+    z = 0.9 * d_d  # Assuming a rectangular stress block and providing a factor of safety
 
     # Calculate the design concrete strength & steel strength
-    f_c_d = float(f_c) / gamma_c
     f_y_d = float(f_y) / gamma_s
 
-    # Check As_w (per meter)
+    # Calculate As_w (per meter) and return the value
     As_w = round((V_d * 1000 / z / (0.8 * f_y_d) / 1),1)
     return As_w
