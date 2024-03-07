@@ -6,7 +6,7 @@ from flask_session import Session
 from tempfile import mkdtemp
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from helpers import apology, login_required, bending_moment, bending_reinforcement, shear_reinforcement
+from helpers import apology, login_required, static_calcs, bending_reinforcement, shear_reinforcement, process_database_load_info, process_database_load_info_unfactored
 
 # Configure application
 app = Flask(__name__)
@@ -291,7 +291,6 @@ def RC_beam2():
         db.execute("INSERT INTO rc_beam_properties (conc_class, rc_density, fyk, top_cover, bot_cover, side_cover) \
                    VALUES(?, ?, ?, ?, ?, ?)", conc_class, rc_density, fyk, top_cover, bot_cover, side_cover)
 
-        designProperties = db.execute("SELECT * FROM rc_beam_properties")
         return redirect("/RC-beam-3")
     # User reached route via GET (as by clicking a link or via redirect)
     else:
@@ -308,57 +307,31 @@ def RC_beam3():
         return apology("To Do POST RC beam", 400)
     # User reached route via GET (as by clicking a link or via redirect)
     else:
-        # Query database
-
-        #get beam geometry:
-        rcBeamGeometry = db.execute("SELECT * FROM beam_geometry")
-        length_of_beam = db.execute("SELECT lenght FROM beam_geometry")[0]['lenght']
-        width_of_beam = db.execute("SELECT width FROM beam_geometry")
-        depth_of_beam = db.execute("SELECT depth FROM beam_geometry")
-        #get beam loads:
-        beamLoads = db.execute("SELECT * FROM loads")
-        point_loads = []
-        distributed_loads = []
-        # length: Length of the beam
-        # point_loads: List of tuples (position, magnitude) for point loads
-        # distributed_loads: List of tuples (start_position, end_position, intensity) for distributed loads
-        for load in beamLoads:
-            if load['udl_or_point'] == "udl":
-                load_type = load['load_type']
-                intensity = load['load_value']
-                # apply load factors here:
-                if load_type == "variable":
-                    intensity = 1.5 * intensity #apply a factor of 1.5 (maybe change the function in helpers later in order to use factors there instead of here)
-                elif load_type == "permanent":
-                    intensity = 1.35 * intensity #apply a factor of 1.35 (maybe change the function in helpers later in order to use factors there instead of here)
-                starting_point = 0
-                end_point = length_of_beam
-                load_tuple = (starting_point, end_point, intensity)
-                distributed_loads.append(load_tuple)
-
-            if load['udl_or_point'] == "point":
-                load_type = load['load_type']
-                intensity = load['load_value']
-                # apply load factors here:
-                if load_type == "variable":
-                    intensity = 1.5 * intensity #apply a factor of 1.5 (maybe change the function in helpers later in order to use factors there instead of here)
-                elif load_type == "permanent":
-                    intensity = 1.35 * intensity #apply a factor of 1.35 (maybe change the function in helpers later in order to use factors there instead of here)
-                starting_point = load['load_position']
-                load_tuple = (starting_point, intensity)
-                point_loads.append(load_tuple)
-
-        static_calculations = bending_moment(length_of_beam, point_loads, distributed_loads)
-        rcBeamProperties = db.execute("SELECT * FROM rc_beam_properties")
-        tension_reinforcement = bending_reinforcement(rcBeamGeometry, rcBeamProperties, static_calculations)
-        shear_rebar = shear_reinforcement(rcBeamGeometry, rcBeamProperties, static_calculations)
+        # Properties for select fields on the page: 
         bars = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         diameters = [8, 10, 12, 16, 20, 25, 32, 40]
 
         shear_legs = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         shear_spacings = [50, 75, 100, 125, 150, 175, 200, 225, 250, 275, 300, 325, 350, 375, 400]
         shear_diameters = [8, 10, 12, 16]
+        
+        # Query database & carry out calculations as required by calling helper functions: 
 
+        #get beam geometry:
+        rcBeamGeometry = db.execute("SELECT * FROM beam_geometry")
+        length_of_beam = db.execute("SELECT lenght FROM beam_geometry")[0]['lenght']
+        #get beam loads:
+        beamLoads = db.execute("SELECT * FROM loads")
+
+        #process beam loads:
+        point_loads, distributed_loads = process_database_load_info(beamLoads, length_of_beam)
+        
+        #carry out the calculations (static and reinforcement requirements):
+        static_calculations = static_calcs(length_of_beam, point_loads, distributed_loads)
+        rcBeamProperties = db.execute("SELECT * FROM rc_beam_properties")
+        tension_reinforcement = bending_reinforcement(rcBeamGeometry, rcBeamProperties, static_calculations)
+        shear_rebar = shear_reinforcement(rcBeamGeometry, rcBeamProperties, static_calculations)
+        
         #geometry, material and load properties to be sent to template:
         #geometry
         width = rcBeamGeometry[0]['width']
@@ -373,32 +346,8 @@ def RC_beam3():
         f_y = rcBeamProperties[0]['fyk']
 
         #load - unfactored
-        point_loads_unfactored = []
-        distributed_loads_unfactored = []
-        for load in beamLoads:
-            if load['udl_or_point'] == "udl":
-                load_type = load['load_type']
-                intensity = load['load_value']
-                if load_type == "variable":
-                    intensity = intensity
-                elif load_type == "permanent":
-                    intensity = intensity
-                starting_point = 0
-                end_point = length_of_beam
-                load_tuple = (starting_point, end_point, intensity)
-                distributed_loads_unfactored.append(load_tuple)
-
-            if load['udl_or_point'] == "point":
-                load_type = load['load_type']
-                intensity = load['load_value']
-                if load_type == "variable":
-                    intensity = intensity
-                elif load_type == "permanent":
-                    intensity = intensity
-                starting_point = load['load_position']
-                load_tuple = (starting_point, intensity)
-                point_loads_unfactored.append(load_tuple)
-
+        point_loads_unfactored, distributed_loads_unfactored = process_database_load_info_unfactored(beamLoads, length_of_beam)
+        
         return render_template("A_RC-beam-3.html", static_calculations=static_calculations, tension_reinforcement=tension_reinforcement, shear_reinforcement=shear_rebar, bars=bars, diameters=diameters, shear_legs=shear_legs, shear_spacings=shear_spacings, shear_diameters=shear_diameters, length=length, width=width, depth=depth, bottom_cover=bottom_cover, top_cover=top_cover, side_cover=side_cover, concrete_class=concrete_class, f_y=f_y, point_loads=point_loads_unfactored, distributed_loads=distributed_loads_unfactored)
 
 @app.route("/Steel-beam-0", methods=["GET", "POST"])

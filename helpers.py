@@ -32,19 +32,74 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# FUNCTION FOR STATIC CALCULATIONS TO DETERMINE BENDING MOMENT ON BEAM
-def bending_moment(length, point_loads, distributed_loads):
-    """
-    Calculate bending moment of a simply supported beam.
+# FUNCTION FOR PROCESSING LOAD INFO FROM DATABASE:
+def process_database_load_info(beamLoads, length_of_beam):
+    point_loads = []
+    distributed_loads = []
+    # length: Length of the beam
+    # point_loads: List of tuples (position, magnitude) for point loads
+    # distributed_loads: List of tuples (start_position, end_position, intensity) for distributed loads
+        
+    for load in beamLoads:
+        if load['udl_or_point'] == "udl":
+            load_type = load['load_type']
+            intensity = load['load_value']
+            # apply load factors here:
+            if load_type == "variable":
+                intensity = 1.5 * intensity #apply a factor of 1.5 
+            elif load_type == "permanent":
+                intensity = 1.35 * intensity #apply a factor of 1.35 
+            starting_point = 0
+            end_point = length_of_beam
+            load_tuple = (starting_point, end_point, intensity)
+            distributed_loads.append(load_tuple)
 
-    Parameters:
-    - length: Length of the beam
-    - point_loads: List of tuples (position, magnitude) for point loads
-    - distributed_loads: List of tuples (start_position, end_position, intensity) for distributed loads
+        if load['udl_or_point'] == "point":
+            load_type = load['load_type']
+            intensity = load['load_value']
+            # apply load factors here:
+            if load_type == "variable":
+                intensity = 1.5 * intensity #apply a factor of 1.5 
+            elif load_type == "permanent":
+                intensity = 1.35 * intensity #apply a factor of 1.35
+            starting_point = load['load_position']
+            load_tuple = (starting_point, intensity)
+            point_loads.append(load_tuple)
 
-    Returns:
-    - A function that calculates the bending moment at a given position on the beam (in kNm)
-    """
+    return(point_loads, distributed_loads)
+
+# FUNCTION FOR PROCESSING LOAD INFO FROM DATABASE (UNFACTORED LOADS FOR TEMPLATE USE):
+def process_database_load_info_unfactored(beamLoads, length_of_beam):
+    point_loads_unfactored = []
+    distributed_loads_unfactored = []
+    for load in beamLoads:
+        if load['udl_or_point'] == "udl":
+            load_type = load['load_type']
+            intensity = load['load_value']
+            if load_type == "variable":
+                intensity = intensity
+            elif load_type == "permanent":
+                intensity = intensity
+            starting_point = 0
+            end_point = length_of_beam
+            load_tuple = (starting_point, end_point, intensity)
+            distributed_loads_unfactored.append(load_tuple)
+
+        if load['udl_or_point'] == "point":
+            load_type = load['load_type']
+            intensity = load['load_value']
+            if load_type == "variable":
+                intensity = intensity
+            elif load_type == "permanent":
+                intensity = intensity
+            starting_point = load['load_position']
+            load_tuple = (starting_point, intensity)
+            point_loads_unfactored.append(load_tuple)
+            
+    return(point_loads_unfactored, distributed_loads_unfactored)
+
+# FUNCTION FOR STATIC CALCULATIONS:
+def static_calcs(length, point_loads, distributed_loads):
 
     # Transform distributed loads in equivalent point loads:
     equivalent_point_loads = transform_distributed_to_point(distributed_loads)
@@ -53,111 +108,15 @@ def bending_moment(length, point_loads, distributed_loads):
     new_point_loads = point_loads + equivalent_point_loads
 
     # Calculate reaction forces from the equilibrium equations:
-        # Initialize reactions:
-    reaction_A = reaction_B = 0
-    point_load_sum = 0
-    magnitude_position_pair = 0
+    reaction_A, reaction_B = calculate_reactions(new_point_loads, length)
 
-    for load_position, load_magnitude in new_point_loads:
-        point_load_sum += load_magnitude
-        magnitude_position_pair += (load_position * load_magnitude)
-
-    reaction_B = magnitude_position_pair / length
-    reaction_A = point_load_sum - reaction_B
-
-    # Get a list of point load positions and magnitudes:
-    load_position_list = []
-    load_magnitude_list = []
-
-    for load_position, load_magnitude in new_point_loads:
-        load_position_list.append(load_position)
-        load_magnitude_list.append(load_magnitude)
-
-    # Get a list of distributed load positions and magnitudes:
-    distributed_load_start_position_list = []
-    distributed_load_end_position_list = []
-    distributed_load_intensity_list = []
-
-    for start_position, end_position, load_intensity in distributed_loads:
-        distributed_load_start_position_list.append(start_position)
-        distributed_load_end_position_list.append(end_position)
-        distributed_load_intensity_list.append(load_intensity)
-
-    # Calculate bending moments in all beam sections considering an increment of 0.1mm (0.0001m):
-
-    bending_moment_list = [] # Initialize the bending moment list for all relevant positions:
-
-    for x in range(int(length)): # x represent the section where we are doing the calculations
-
-        bending_moment_increments = []
-
-        # a) Get the bending moment from the point loads (check only equilibrium on left hand side):
-        for load_position, load_magnitude in point_loads:
-            if load_position < x:
-                bending_moment_i = (-1) * load_magnitude * (x - load_position)
-                bending_moment_increments.append(bending_moment_i)
-
-        # a) Get the bending moment from the distributed loads (check only equilibrium on left hand side):
-        for start_position, end_position, load_intensity in distributed_loads:
-            if start_position < x and end_position < x:
-                bending_moment_i = (-1) * load_intensity * (x - ((start_position + end_position)/2)) * (end_position - start_position)
-                bending_moment_increments.append(bending_moment_i)
-
-            if start_position < x and end_position >= x:
-                bending_moment_i = (-1) * load_intensity * (x - ((start_position + x)/2)) * (x - start_position)
-                bending_moment_increments.append(bending_moment_i)
-
-        x += 0.0001
-
-        bending_moment = reaction_A * x + sum(bending_moment_increments)
-        bending_moment_list.append(bending_moment)
-
-    max_bending_moment = round(max(bending_moment_list),2)
-
-    # Calculate shear force in all beam sections considering an increment of 0.1mm (0.0001m):
-
-    shear_force_list = [] # Initialize the shear force list for all relevant positions:
-
-    for x in range(int(length)): # x represent the section where we are doing the calculations
-
-        shear_force_increments = []
-
-        # a) Get the shear force from the point loads (check only equilibrium on left hand side):
-        for load_position, load_magnitude in point_loads:
-            if load_position < x:
-                shear_force_i = (-1) * load_magnitude
-                shear_force_increments.append(shear_force_i)
-
-        # a) Get the shear force from the distributed loads (check only equilibrium on left hand side):
-        for start_position, end_position, load_intensity in distributed_loads:
-            if start_position < x and end_position < x:
-                shear_force_i = (-1) * load_intensity * (end_position - start_position)
-                shear_force_increments.append(shear_force_i)
-
-            if start_position < x and end_position >= x:
-                shear_force_i = (-1) * load_intensity * (x - start_position)
-                shear_force_increments.append(shear_force_i)
-
-        x += 0.0001
-
-        shear_force = reaction_A + sum(shear_force_increments)
-        shear_force_list.append(shear_force)
-
-    max_shear_force = round(max(shear_force_list),2)
-    min_shear_force = round(min(shear_force_list),2)
+    # Get maximum bending moment:
+    max_bending_moment = get_max_bending_moment(point_loads, distributed_loads, reaction_A, length)
+    
+    # Get min and max shear force values:
+    min_shear_force, max_shear_force = get_shear_forces(point_loads, distributed_loads, reaction_A, length)
 
     return(round(reaction_A, 1), round(reaction_B,1), round(max_bending_moment,1), round(max_shear_force,1), round(min_shear_force,1))
-
-
-def transform_distributed_to_point(distributed_loads):
-    equivalent_point_loads = []
-    for start_position, end_position, load_intensity in distributed_loads:
-        mid_point = (start_position + end_position) / 2
-        equivalent_point_load = load_intensity * (end_position - start_position)
-        load_tuple = (mid_point, equivalent_point_load)
-        equivalent_point_loads.append(load_tuple)
-    return equivalent_point_loads
-
 
 # FUNCTION FOR DETERMINING BENDING REINFORCEMENT REQUIREMENT
 def bending_reinforcement(beam_geometry, beam_properties, static_calculations):
@@ -253,3 +212,92 @@ def shear_reinforcement(beam_geometry, beam_properties, static_calculations):
     # Calculate As_w (per meter) and return the value
     As_w = round((V_d * 1000 / z / (0.8 * f_y_d) / 1),1)
     return As_w
+
+def transform_distributed_to_point(distributed_loads):
+    equivalent_point_loads = []
+    for start_position, end_position, load_intensity in distributed_loads:
+        mid_point = (start_position + end_position) / 2
+        equivalent_point_load = load_intensity * (end_position - start_position)
+        load_tuple = (mid_point, equivalent_point_load)
+        equivalent_point_loads.append(load_tuple)
+    return equivalent_point_loads
+
+# Calculate reaction forces from the equilibrium equations:
+def calculate_reactions(new_point_loads, length):
+    reaction_A = reaction_B = 0
+    point_load_sum = 0
+    magnitude_position_pair = 0
+
+    for load_position, load_magnitude in new_point_loads:
+        point_load_sum += load_magnitude
+        magnitude_position_pair += (load_position * load_magnitude)
+
+    reaction_B = magnitude_position_pair / length
+    reaction_A = point_load_sum - reaction_B
+    return(reaction_A, reaction_B)
+
+def get_max_bending_moment(point_loads, distributed_loads, reaction_A, length):
+    # Calculate bending moments in all beam sections considering an increment of 0.1mm (0.0001m) and get the maximum value:
+    bending_moment_list = [] # Initialize the bending moment list for all relevant positions:
+
+    for x in range(int(length)): # x represent the section where we are doing the calculations
+
+        bending_moment_increments = []
+
+        # a) Get the bending moment from the point loads (check only equilibrium on left hand side):
+        for load_position, load_magnitude in point_loads:
+            if load_position < x:
+                bending_moment_i = (-1) * load_magnitude * (x - load_position)
+                bending_moment_increments.append(bending_moment_i)
+
+        # a) Get the bending moment from the distributed loads (check only equilibrium on left hand side):
+        for start_position, end_position, load_intensity in distributed_loads:
+            if start_position < x and end_position < x:
+                bending_moment_i = (-1) * load_intensity * (x - ((start_position + end_position)/2)) * (end_position - start_position)
+                bending_moment_increments.append(bending_moment_i)
+
+            if start_position < x and end_position >= x:
+                bending_moment_i = (-1) * load_intensity * (x - ((start_position + x)/2)) * (x - start_position)
+                bending_moment_increments.append(bending_moment_i)
+
+        x += 0.0001
+
+        bending_moment = reaction_A * x + sum(bending_moment_increments)
+        bending_moment_list.append(bending_moment)
+
+    max_bending_moment = round(max(bending_moment_list),2)
+    return(max_bending_moment)
+
+def get_shear_forces(point_loads, distributed_loads, reaction_A, length):
+    # Calculate shear force in all beam sections considering an increment of 0.1mm (0.0001m):
+    shear_force_list = [] # Initialize the shear force list for all relevant positions:
+
+    for x in range(int(length)): # x represent the section where we are doing the calculations
+
+        shear_force_increments = []
+
+        # a) Get the shear force from the point loads (check only equilibrium on left hand side):
+        for load_position, load_magnitude in point_loads:
+            if load_position < x:
+                shear_force_i = (-1) * load_magnitude
+                shear_force_increments.append(shear_force_i)
+
+        # a) Get the shear force from the distributed loads (check only equilibrium on left hand side):
+        for start_position, end_position, load_intensity in distributed_loads:
+            if start_position < x and end_position < x:
+                shear_force_i = (-1) * load_intensity * (end_position - start_position)
+                shear_force_increments.append(shear_force_i)
+
+            if start_position < x and end_position >= x:
+                shear_force_i = (-1) * load_intensity * (x - start_position)
+                shear_force_increments.append(shear_force_i)
+
+        x += 0.0001
+
+        shear_force = reaction_A + sum(shear_force_increments)
+        shear_force_list.append(shear_force)
+
+    max_shear_force = round(max(shear_force_list),2)
+    min_shear_force = round(min(shear_force_list),2)
+
+    return(min_shear_force, max_shear_force)
