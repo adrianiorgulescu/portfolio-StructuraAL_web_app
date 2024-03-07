@@ -219,20 +219,10 @@ def RC_beam1():
 
         for i in range (2, i_cell_no):
             s = str(i)
-            cellA_var_request = s
-            cellB_var_request = s
-            cellC_var_request = s
-            cellD_var_request = s
-
-            cellA_request = cellA_base_request + cellA_var_request
-            cellB_request = cellB_base_request + cellB_var_request
-            cellC_request = cellC_base_request + cellC_var_request
-            cellD_request = cellD_base_request + cellD_var_request
-
-            cellA = request.form.get(cellA_request)
-            cellB = request.form.get(cellB_request)
-            cellC = request.form.get(cellC_request)
-            cellD = request.form.get(cellD_request)
+            cellA = request.form.get(cellA_base_request + s)
+            cellB = request.form.get(cellB_base_request + s)
+            cellC = request.form.get(cellC_base_request + s)
+            cellD = request.form.get(cellD_base_request + s)
 
             if not cellA:
                 return apology("Please review loading table", 400)
